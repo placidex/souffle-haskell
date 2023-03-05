@@ -7,9 +7,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v3
-      - uses: haskell/actions/setup@v2
-      - uses: hspec/setup-haskell@v1
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup
+        uses: haskell/actions/setup@v2
         with:
           ghc-version: "9.2.5"
           cabal-version: "3.6.2.0"
@@ -31,6 +33,7 @@ jobs:
           cabal update
           cabal configure --enable-tests
           cabal build --only-dependencies --enable-tests --enable-benchmarks
+          cabal install hspec-discover
       - name: Build
         run: cabal build
       - name: Run tests
