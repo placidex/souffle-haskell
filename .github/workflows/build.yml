@@ -7,39 +7,30 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v2.4.0
+      - uses: actions/checkout@v3
+      - uses: actions/setup-haskell@v1
         with:
-          # Nix Flakes doesn't work on shallow clones
-          fetch-depth: 0
-      - uses: cachix/install-nix-action@v15
+          ghc-version: "9.2.5"
+          cabal-version: "3.6.2.0"
+
+      - name: Cache
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-cabal
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.6.1/install
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
-      - run: |
-          nix profile install nixpkgs#cachix
-          cachix use cachix
-          cachix use luctielen
-      - name: nix build
-        run: nix build
-      - name: nix log
-        if: ${{ always() }}
+          path: ~/.cabal
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - name: Install dependencies
         run: |
-          nix log &> ${{ matrix.os }}-souffle-haskell.log
-      - name: upload ${{ matrix.os }}-souffle-haskell.log
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.os }}-souffle-haskell.log
-          path: ${{ matrix.os }}-souffle-haskell.log
-      - name: nix lint
-        if: ${{ always() }}
-        run: |
-          nix run .#souffle-haskell-lint &> ${{ matrix.os }}-souffle-haskell-lint.log
-      - name: upload ${{ matrix.os }}-souffle-haskell-lint.log
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.os }}-souffle-haskell-lint.log
-          path: ${{ matrix.os }}-souffle-haskell-lint.log
+          cabal update
+          cabal configure --enable-tests
+          cabal build --only-dependencies --enable-tests --enable-benchmarks
+      - name: Build
+        run: cabal build
+      - name: Run tests
+        run: DATALOG_DIR=tests/fixtures/ cabal run souffle-haskell-test
