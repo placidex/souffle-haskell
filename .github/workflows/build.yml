@@ -10,31 +10,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Setup
-        uses: haskell/actions/setup@v2
-        with:
-          ghc-version: "9.2.5"
-          cabal-version: "3.6.2.0"
+      # In this step, this action saves a list of existing images, the cache is created without them in the post run.
+      # It also restores the cache if it exists.
+      - uses: jpribyl/action-docker-layer-caching@v0.1.1
+        continue-on-error: true # Ignore the failure of a step and avoid terminating the job.
 
-      - name: Cache
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cabal
-        with:
-          path: ~/.cabal
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/*.cabal') }}-${{ hashFiles('**/cabal.project') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-
-      - name: Install dependencies
+      - name: Build and test
         run: |
-          cabal update
-          cabal configure --enable-tests
-          cabal build --only-dependencies --enable-tests --enable-benchmarks
-          cabal install hspec-discover
-      - name: Build
-        run: cabal build
-      - name: Run tests
-        run: DATALOG_DIR=tests/fixtures/ cabal run souffle-haskell-test
+          set -eo pipefail
+          export TIMESTAMP=$(date +%s)
+          docker build -f Dockerfile . -t souffle-haskell:$TIMESTAMP | tee souffle-haskell-lang-${{matrix.os}}.log
+          docker run --rm souffle-haskell:$TIMESTAMP bash -c "make test" | tee -a souffle-haskell-lang-${{matrix.os}}.log
+
+      - name: Upload logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: souffle-haskell-lang-${{matrix.os}}.log
+          path: souffle-haskell-lang-${{matrix.os}}.log
