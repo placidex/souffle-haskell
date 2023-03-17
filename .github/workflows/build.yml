@@ -5,7 +5,7 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -20,7 +20,7 @@ jobs:
           set -eo pipefail
           export TIMESTAMP=$(date +%s)
           docker build -f Dockerfile . -t souffle-haskell:$TIMESTAMP | tee souffle-haskell-lang-${{matrix.os}}.log
-          docker run --rm souffle-haskell:$TIMESTAMP bash -c "make test" | tee -a souffle-haskell-lang-${{matrix.os}}.log
+          docker run --rm souffle-haskell:$TIMESTAMP bash -c "make tests" | tee -a souffle-haskell-lang-${{matrix.os}}.log
 
       - name: Upload logs
         if: ${{ always() }}
